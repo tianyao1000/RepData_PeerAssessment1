@@ -36,6 +36,7 @@ file<-dir(datafolder)
 filepath<-paste(datafolder,file,sep="\\")
 con<-fread(filepath)
 ```
+
 ##What is mean total number of steps taken per day?
 
 
@@ -63,7 +64,7 @@ knitr::kable(mean_median_step_con,caption="Table of mean and median step per day
 
 ```
 
-What is the average daily activity pattern?
+##What is the average daily activity pattern?
 
 ```{r}
 mean_daily_step_con<- aggregate(steps~interval,data = con,FUN=mean,na.rm=TRUE)
@@ -123,6 +124,7 @@ knitr::kable(mean_median_step_con,caption="Table of mean and median step per day
 
 ```
 
+### The mean and median steps are almost the same as the one before the imputing
 
 ##Are there differences in activity patterns between weekdays and weekends?
 
