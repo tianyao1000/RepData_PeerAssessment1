@@ -1,25 +1,144 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Reproducible Research"
+author: "Yao Tian"
+date: "February 23, 2017"
+output: html_document
 ---
 
+This is for the project of week 2 "Reproduciable research"
 
-## Loading and preprocessing the data
+##Loading and preprocessing the data
+Download the data file, read and store the content into the variable "con"
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache=TRUE)
+```
+
+```{r,echo=FALSE}
+library(data.table)
+library(reshape2)
+library(ggplot2)
+library(mice)
+library(lubridate)
+
+url<-"https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
+savefile<-"data.zip"
+datafolder<-".\\data"
+if(!file.exists(savefile))
+{
+    download.file(url,savefile)
+    
+    dir.create(datafolder)
+    unzip(savefile,exdir = datafolder)
+}
+
+file<-dir(datafolder)
+filepath<-paste(datafolder,file,sep="\\")
+con<-fread(filepath)
+```
+##What is mean total number of steps taken per day?
+
+
+```{r}
+con2<- aggregate(steps~date,data = con,FUN=sum,na.rm=TRUE)
+```
+Histogram of the step number per day
+```{r}
+step<-con2$steps
+#hist(step,breaks=9)
+g<-ggplot(data=con2,aes(step))
+p<-g+geom_histogram(breaks=seq(0, 22000, by=1500),col="red",fill="blue")
+print(p)
+```
+
+Calculate the mean and median steps per day
+```{r}
+mean_step_con <- aggregate(steps~date,data = con,FUN=mean,na.rm=TRUE)
+median_step_con <- aggregate(steps~date,data = con,FUN=median,na.rm=TRUE)
+mean_median_step_con <- mean_step_con
+mean_median_step_con$median_step <- median_step_con$steps
+names(mean_median_step_con) <- c("date","mean_step","median_step")
+
+knitr::kable(mean_median_step_con,caption="Table of mean and median step per day")
+
+```
+
+What is the average daily activity pattern?
+
+```{r}
+mean_daily_step_con<- aggregate(steps~interval,data = con,FUN=mean,na.rm=TRUE)
+#mean_daily_step_con$interval<-sapply(mean_daily_step_con$interval, function(x) paste(substr(x,1,2),substr(x,3,4),sep=":"))
+
+g<-ggplot(data=mean_daily_step_con,aes(interval,steps))
+p<-g+geom_line(size=2)
+print(p)
+```
 
 
 
-## What is mean total number of steps taken per day?
+```{r}
+max_interval<- which.max(mean_daily_step_con$steps)
+max_step<-mean_daily_step_con$steps[max_interval]
+```
+###The interval contains max steps is `r max_interval`, and the average steps of that interval is `r max_step`
 
 
+##Imputing missing values
 
-## What is the average daily activity pattern?
+Missing value of each interval on average
+```{r}
+table(con$date,is.na(con$steps))
+
+```
+###The number of NA row is  `r sum(is.na(con$steps))`
+
+Use the interval average to impute NA
+First reorder the the data frame con by the interval and calculate the mean by interval which outputs a variable as the same length as con but the all the steps values are the mean value
+```{r}
+con_reorder <- con[order(con$interval)]
+mean_steps_by_interval<-tapply(con_reorder$steps,con_reorder$interval,function(x) mean(x,na.rm=T)*rep(1,length(x)))
+```
+
+Assign the mean value to replace "NA", which is achieved by addition
+```{r}
+NA_index <- is.na(con_reorder$steps)
+con_reorder$steps[NA_index]<-0
+con_reorder$steps<- con_reorder$steps + NA_index*unlist(mean_steps_by_interval)
+```
+Histogram of the steps after imputation
+
+```{r}
+g<-ggplot(data=con_reorder,aes(step))
+p<-g+geom_histogram(breaks=seq(0, 22000, by=1500),col="red",fill="blue")
+```
+
+```{r}
+mean_step_con <- aggregate(steps~date,data = con_reorder,FUN=mean,na.rm=TRUE)
+median_step_con <- aggregate(steps~date,data = con_reorder,FUN=median,na.rm=TRUE)
+mean_median_step_con <- mean_step_con
+mean_median_step_con$median_step <- median_step_con$steps
+names(mean_median_step_con) <- c("date","mean_step","median_step")
+
+knitr::kable(mean_median_step_con,caption="Table of mean and median step per day after imputing")
+
+```
 
 
+##Are there differences in activity patterns between weekdays and weekends?
 
-## Imputing missing values
+Create a new column "week_flag" indicating if the date is weekend or not
 
+```{r}
+week_index<-wday(ymd(con_reorder$date))>=6
+week_flag_character <- character(ncol(con_reorder))
+week_flag_character[week_index==0] <- "weekday"
+week_flag_character[week_index==1] <- "weekend"
 
-
-## Are there differences in activity patterns between weekdays and weekends?
+con_reorder$week_flag <- week_flag_character
+```
+```{r}
+step_avg_weekend_weekday<-aggregate(steps~interval+week_flag,data=con_reorder,FUN=mean)
+g<-ggplot(data=step_avg_weekend_weekday,aes(interval,steps))
+p<-g+geom_line(size=2)+facet_wrap(~week_flag,scale="free")
+print(p)
+```
